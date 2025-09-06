@@ -4,7 +4,6 @@ import UserFooter from "@/components/UserFooter";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, Bot, Activity, FileText } from "lucide-react";
-
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-purple-50 dark:bg-purple-950 text-purple-900 dark:text-purple-100">
@@ -21,7 +20,7 @@ export default function HomePage() {
         <Button
           asChild
           size="lg"
-          className="bg-purple-700 hover:bg-purple-800 text-white"
+          className="bg-purple-700 hover:bg-purple-800 text-white cursor-pointer"
         >
           <Link href="/user/ai">Ask Our AI Doctor</Link>
         </Button>
@@ -53,7 +52,7 @@ export default function HomePage() {
           />
           <FeatureCard
             icon={<FileText className="w-8 h-8 text-purple-700" />}
-            title="Your Reports"
+            title="Appointments"
             description="View and manage your medical history and reports."
             href="/user/reports"
           />
