@@ -1,8 +1,8 @@
-# Rakshaa - AI Healthcare Platform
+# Medix - AI Healthcare Platform
 
 > **Empowering Healthcare with AI, Real-Time Collaboration, and Seamless Patient Experience**
 
-🌐 **Live Website:** [rakshaa.xyz](https://rakshaa.xyz)
+🌐 **Live Website:** [Medix](https://medix-weld.vercel.app/)
 
 ## Table of Contents
 - [Overview](#overview)
@@ -17,13 +17,13 @@
 ---
 
 ## 🌟 Overview
-Rakshaa is a comprehensive, full-stack AI-powered healthcare platform designed to revolutionize the way patients, doctors, path labs, and pharmacies interact. The platform harnesses advanced machine learning to predict diseases based on symptoms, streamlines appointment and lab booking, and enables real-time communication between all stakeholders. With a focus on accessibility, security, and user experience, Rakshaa delivers a seamless digital healthcare journey for everyone.
+Medix is a comprehensive, full-stack AI-powered healthcare platform designed to revolutionize the way patients, doctors, path labs, and pharmacies interact. The platform harnesses advanced machine learning to predict diseases based on symptoms, streamlines appointment and lab booking, and enables real-time communication between all stakeholders. With a focus on accessibility, security, and user experience, Medix delivers a seamless digital healthcare journey for everyone.
 
 ---
 
 ## 🚀 Features
 - **AI Disease Prediction:**
-    - Enter your symptoms and let Rakshaa's intelligent backend predict possible diseases using a trained machine learning model. Instantly receive recommendations for medications, diets, and necessary precautions tailored to your condition.
+    - Enter your symptoms and let Medix's intelligent backend predict possible diseases using a trained machine learning model. Instantly receive recommendations for medications, diets, and necessary precautions tailored to your condition.
 - **Multi-role System:**
     - The platform provides dedicated dashboards and workflows for Patients, Doctors, Path Labs, and Pharmacies, ensuring each user type has access to the tools and information they need.
 - **Real-Time Chat:**
@@ -43,7 +43,8 @@ Rakshaa is a comprehensive, full-stack AI-powered healthcare platform designed t
     - Enjoy a clean, responsive, and user-friendly interface built with Next.js and Tailwind CSS, optimized for both desktop and mobile devices.
 - **Admin Controls:**
     - Platform administrators can efficiently manage users, doctors, labs, and medicines, maintaining a high standard of service and security.
-
+- **Ambulance:**
+    -Implemented an Emergency SOS system with real-time ambulance tracking and booking using interactive maps.Integrated live location, route simulation, and           ambulance details (driver info, ETA, fare) for seamless user experience.
 ---
 
 ## 🏗️ Architecture
@@ -83,7 +84,7 @@ Rakshaa is a comprehensive, full-stack AI-powered healthcare platform designed t
 
 ## 🤖 AI & ML Capabilities
 - **Disease Prediction:**
-    - Rakshaa uses a Support Vector Classifier (SVC) model, trained on a comprehensive dataset, to predict diseases based on user-reported symptoms. The model is integrated into the platform via a Flask API for fast and accurate predictions.
+    - Medix uses a Support Vector Classifier (SVC) model, trained on a comprehensive dataset, to predict diseases based on user-reported symptoms. The model is integrated into the platform via a Flask API for fast and accurate predictions.
 - **Recommendations:**
     - For each predicted disease, the system provides evidence-based recommendations for medications, dietary adjustments, and necessary precautions, helping users take informed next steps.
 - **Data Sources:**
@@ -106,4 +107,4 @@ This project is licensed under the MIT License. You are free to use, modify, and
 
 ---
 
-> **Crafted with ❤️ by the Rakshaa Team**
+> **Crafted with ❤️ by the Medix Team**
