@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 
+const testResultSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  result: { type: String, default: "" },
+  normalRange: { type: String, default: "" },
+  units: { type: String, default: "" },
+  remarks: { type: String, default: "" },
+});
+
 const labReportSchema = new mongoose.Schema(
   {
     patientId: {
@@ -9,25 +17,28 @@ const labReportSchema = new mongoose.Schema(
     },
     labId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Pathlab",
+      ref: "PathLab",
       required: true,
     },
-    reports: [
-      {
-        url: {
-          type: String,
-          required: true,
-        },
-        date: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId, 
+      required: true,
+      unique: true,
+    },
+    tests: {
+      type: [testResultSchema],
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "completed"],
+      default: "pending",
+    },
+    fee: Number,
+    paymentMode: String,
   },
   { timestamps: true }
 );
-
 
 const LabReport =
   mongoose.models.LabReport || mongoose.model("LabReport", labReportSchema);
