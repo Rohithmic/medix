@@ -44,7 +44,7 @@ Medix is a comprehensive, full-stack AI-powered healthcare platform designed to 
 - **Admin Controls:**
     - Platform administrators can efficiently manage users, doctors, labs, and medicines, maintaining a high standard of service and security.
 - **Ambulance:**
-    -Implemented an Emergency SOS system with real-time ambulance tracking and booking using interactive maps.Integrated live location, route simulation, and           ambulance details (driver info, ETA, fare) for seamless user experience.
+    -Implemented an Emergency SOS system with real-time ambulance tracking and booking using interactive maps.Integrated live location, route simulation, and ambulance details (driver info, ETA, fare) for seamless user experience.
 ---
 
 ## 🏗️ Architecture
