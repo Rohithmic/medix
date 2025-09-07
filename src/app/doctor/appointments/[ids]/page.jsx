@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import DocNav from "@/components/DocNavbar";
 import UserDoctorFooter from "@/components/DocFooter";
 import { useRef, useEffect } from "react";
@@ -75,12 +75,9 @@ export default function AppointmentDetails() {
     setIsClient(true);
   }, []);
 
-  // useEffect(() => {
-  //   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  // }, [messages]);
 
-  const senderId = booking?.doctorId?._id || booking?.doctorId || null; // Doctor is sender
-  const receiverId = booking?.patientId?._id || booking?.patientId || null; // Patient is receiver
+  const senderId = booking?.doctorId?._id || booking?.doctorId || null;
+  const receiverId = booking?.patientId?._id || booking?.patientId || null;
 
   const handleCreateZoomMeeting = async () => {
     try {
@@ -132,11 +129,26 @@ export default function AppointmentDetails() {
         const data = await res.json();
 
         if (res.ok) {
-          const transformed = data.reports.map((r, i) => ({
-            name: `Report_${i + 1} (${r.patientName || "Unknown"})`,
-            url: r.url,
-            date: new Date(r.date).toLocaleDateString(),
-          }));
+          // console.log("data reports", data.reports)
+          const transformed = data.reports
+            // Step 1: Sort by date ascending so oldest first
+            .slice()
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            // Step 2: Number them in upload order
+            .map((r, i) => ({
+              name: `Report_${i + 1} (${r.patientName || "Unknown"})`,
+
+              url: r.url,
+              date: new Date(r.date).toLocaleDateString(),
+              time: new Date(r.date).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            }))
+            // Step 3: Reverse so newest shows at top in UI
+            .reverse();
+
           setUploadedReports(transformed);
         } else {
           console.log("report error");
@@ -158,7 +170,7 @@ export default function AppointmentDetails() {
   useEffect(() => {
     const fetchMeds = async () => {
       try {
-        const res = await fetch(`/api/medications?patientId=${receiverId}`);
+        const res = await fetch(`/api/medications?patientId=${receiverId}&bookingId=${ids}`);
         const data = await res.json();
 
         if (data.success && Array.isArray(data.medications)) {
@@ -179,35 +191,60 @@ export default function AppointmentDetails() {
     }
   }, [receiverId]);
 
-  const socket = useRef(null);
+  // const socket = useRef(null);
+
+  // useEffect(() => {
+  //   if (!receiverId || !senderId || activeSection !== "chat") return;
+
+  //   const token = localStorage.getItem("drtoken") || "";
+
+  //   socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
+  //     autoConnect: true,
+  //     auth: { token },
+  //   });
+
+  //   socket.current.emit("join", { userId: senderId });
+
+  //   socket.current.on("newMessage", (msg) => {
+  //     setMessages((prev) => [...prev, msg]);
+  //   });
+
+  //   return () => {
+  //     socket.current?.disconnect();
+  //   };
+  // }, [receiverId, senderId, activeSection]);
 
   useEffect(() => {
-    if (!receiverId || !senderId || activeSection !== "chat") return;
+    if (!receiverId || !senderId || activeSection !== "chat" || !booking?._id) return;
 
-    const token = localStorage.getItem("drtoken") || "";
-
-    socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
-      autoConnect: true,
-      auth: { token },
-    });
-
-    socket.current.emit("join", { userId: senderId });
-
-    socket.current.on("newMessage", (msg) => {
-      setMessages((prev) => [...prev, msg]);
-    });
-
-    return () => {
-      socket.current?.disconnect();
+    const fetchMessages = async () => {
+      try {
+        const res = await axios.post("/api/chat/get", { bookingId: booking._id });
+        if (res.data.success) {
+          setMessages(res.data.messages); // messages will already include senderName from API
+        }
+      } catch (error) {
+        console.error("Failed to fetch chat history:", error);
+      }
     };
-  }, [receiverId, senderId, activeSection]);
+
+    // Fetch immediately on mount
+    fetchMessages();
+
+
+    const intervalId = setInterval(fetchMessages, 1200);
+
+    // Cleanup on unmount or dependency change
+    return () => clearInterval(intervalId);
+
+  }, [receiverId, senderId, activeSection, booking?._id]);
 
   if (loading || !booking || !senderId || !receiverId) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-16 h-16 border-4 border-purple-400 border-dashed rounded-full animate-spin dark:border-purple-300"></div>
-          <p className="text-purple-700 dark:text-purple-200 text-lg font-semibold animate-pulse">
+      <div className="flex justify-center items-center py-20 bg-blue-50 dark:bg-[#181c2a] min-h-[50vh] px-4">
+        <div className="flex flex-col items-center space-y-6">
+          <div className="w-16 h-16 border-4 border-transparent border-t-[#2563eb] border-l-[#60a5fa] rounded-full animate-spin bg-gradient-to-r from-[#93c5fd] via-[#2563eb] to-[#60a5fa] shadow-lg"></div>
+          <p className="text-[#2563eb] dark:text-[#60a5fa] text-lg font-semibold animate-pulse">
             Loading Appointment Details...
           </p>
         </div>
@@ -245,6 +282,7 @@ export default function AppointmentDetails() {
           patientId: receiverId, // valid ObjectId
           doctorId: senderId, // valid ObjectId
           medications: newMedications,
+          bookingId: ids
         }),
       });
 
@@ -260,30 +298,37 @@ export default function AppointmentDetails() {
     }
   };
 
-  const handleSendMessage = () => {
-    if (messageInput.trim() === "") return;
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) return;
 
     const newMessage = {
       text: messageInput,
-      sender: senderId,
-      receiverId: receiverId,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      senderId,
+      senderType: "Doctor",
+      receiverId,
+      receiverType: "Patient",
+      timestamp: new Date(),
     };
 
-    // Emit message to server
-    socket.current.emit("sendMessage", {
-      to: receiverId,
-      message: newMessage,
-    });
+    // Emit via socket
+    // socket.current.emit("sendMessage", { to: receiverId, message: newMessage });
 
-    // Append to current UI
-    setMessages((prev) => [...prev, newMessage]);
+    // Save to DB
+    try {
+      await axios.post("/api/chat/save", {
+        bookingId: booking._id,
+        ...newMessage,
+      });
+    } catch (error) {
+      console.error("Error saving message:", error);
+    }
+
+    setMessages(prev => [...prev, newMessage]);
     setMessageInput("");
-    // console.log(messages);
   };
+
+
   const handleSelectChange = (isoDate) => {
     const med = medicationData.find(
       (m) => new Date(m.date).toISOString() === isoDate
@@ -340,14 +385,14 @@ export default function AppointmentDetails() {
   return (
     <>
       <DocNav />
-      <div className="p-4 max-w-7xl mx-auto space-y-6">
+      <div className="pt-28 p-4 max-w-7xl mx-auto space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Left Column */}
-          <div className="space-y-4">
+          <div className="space-y-4 md:sticky md:top-32 h-fit">
             {/* Appointment Info */}
-            <Card className="bg-purple-100 dark:bg-purple-900">
+            <Card className="bg-blue-50 dark:bg-[#181c2a] border border-[#2563eb]/20 dark:border-[#60a5fa]/20 shadow-md">
               <CardContent className="p-4 space-y-1">
-                <h2 className="text-xl font-bold text-purple-800 dark:text-purple-100">
+                <h2 className="text-xl font-bold text-[#2563eb] dark:text-[#60a5fa]">
                   Appointment Details
                 </h2>
                 <p>
@@ -376,7 +421,7 @@ export default function AppointmentDetails() {
                 <div className="pt-4">
                   <button
                     onClick={handleMarkCompleted}
-                    className="w-full sm:w-auto px-6 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-purple-800 transition-colors duration-300 cursor-pointer"
+                    className="w-full sm:w-auto px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-[#2563eb] transition-colors duration-300 cursor-pointer"
                   >
                     Mark as Completed
                   </button>
@@ -386,24 +431,23 @@ export default function AppointmentDetails() {
 
             {/* Navigation Buttons */}
             <div className="space-y-3">
-              {[
-                "chat",
-                "medications",
-                "send Medication",
-                "reports",
-                "zoom",
-              ].map((section) => (
+              {["chat", "medications", "send Medication", "reports", "zoom"].map((section) => (
                 <Button
                   key={section}
                   variant={activeSection === section ? "default" : "outline"}
-                  className="w-full capitalize cursor-pointer"
+                  className={`w-full capitalize cursor-pointer
+    ${activeSection === section
+                      ? " text-black dark:bg-cyan-500 dark:text-black border-blue-600 dark:border-cyan-500"
+                      : "border-blue-600 dark:border-cyan-500 text-blue-600 dark:text-cyan-500 hover:bg-blue-100 dark:hover:bg-[#181c2a] hover:text-blue-600 dark:hover:text-cyan-500"
+                    }
+  `}
                   onClick={() => setActiveSection(section)}
                 >
                   {section === "reports"
                     ? "View Reports"
                     : section === "zoom"
-                    ? "Zoom Meeting"
-                    : section}
+                      ? "Zoom Meeting"
+                      : section}
                 </Button>
               ))}
             </div>
@@ -412,70 +456,115 @@ export default function AppointmentDetails() {
           {/* Right Column */}
           <div className="md:col-span-3 space-y-4">
             {activeSection === "chat" && (
-              <Card className="bg-purple-100 dark:bg-purple-900">
-                <CardContent className="p-4 space-y-3">
-                  <h2 className="text-xl justify-center text-center font-semibold text-purple-800 dark:text-purple-100">
-                    Chat with{" "}
-                    {booking.patientId.name
-                      ? booking.patientId.name
-                      : "patient name loading!!"}
-                  </h2>
-                  <div className="h-95 overflow-y-auto bg-white dark:bg-purple-950 rounded-md p-2 space-y-2">
+              <Card className="bg-gradient-to-br from-[#e0e7ff] to-[#f8fafc] dark:from-[#181c2a] dark:to-[#2563eb]/10 border border-[#2563eb]/30 dark:border-[#60a5fa]/30 shadow-2xl rounded-3xl">
+                <CardContent className="p-0 md:p-0 flex flex-col h-[500px] md:h-[600px]">
+                  {/* Header */}
+                  <div className="flex items-center justify-center gap-2 px-4 py-4 border-b border-[#2563eb]/10 dark:border-[#60a5fa]/10 bg-white/80 dark:bg-[#181c2a]/80 mt-0">
+                    <div className="w-12 h-12 rounded-full bg-[#2563eb]/10 flex items-center justify-center text-2xl font-bold text-[#2563eb] dark:text-[#60a5fa] shadow-md">
+                      {booking.patientId.name ? booking.patientId.name[0] : "P"}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-semibold text-[#2563eb] dark:text-[#60a5fa]">{booking.patientId.name || "patient name loading!!"}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-300">Online</span>
+                    </div>
+                  </div>
+
+                  {/* Chat Messages */}
+                  <div className="flex-1 overflow-y-auto px-2 md:px-6 py-4 space-y-3 bg-transparent custom-scrollbar">
+                    {messages.length === 0 && (
+                      <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 animate-fade-in">
+                        <span className="text-3xl">💬</span>
+                        <span className="mt-2">No messages yet. Start the conversation!</span>
+                      </div>
+                    )}
                     {messages.map((msg, index) => (
                       <div
                         key={index}
-                        className={`text-sm p-2 rounded w-fit ${
-                          msg.sender === senderId
-                            ? "bg-pink-300 dark:bg-purple-800 ml-auto text-right"
-                            : "bg-purple-300 dark:bg-purple-700 mr-auto text-left"
-                        }`}
+                        className={`max-w-[80%] md:max-w-[60%] px-5 py-3 rounded-2xl shadow-md relative
+                          ${msg.senderType === "Doctor"
+                            ? "ml-auto bg-gradient-to-br from-[#2563eb] to-[#60a5fa] text-white dark:from-[#60a5fa] dark:to-[#2563eb] dark:text-[#181c2a]"
+                            : "mr-auto bg-white dark:bg-[#181c2a] border border-[#2563eb]/10 dark:border-[#60a5fa]/10 text-[#2563eb] dark:text-[#60a5fa]"}
+                        `}
                       >
-                        <p>{String(msg.text)}</p>
-                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                        <p className="break-words text-base font-medium">{String(msg.text)}</p>
+                        <span className="absolute -bottom-5 right-2 text-xs text-gray-400 dark:text-gray-500 select-none">
                           {msg.time}
-                        </p>
+                        </span>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+
+                  {/* Input Area */}
+                  <form
+                    className="flex items-center gap-2 px-4 py-4 border-t border-[#2563eb]/10 dark:border-[#60a5fa]/10 bg-white/80 dark:bg-[#181c2a]/80 rounded-b-3xl"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }}
+                  >
                     <Input
                       placeholder="Type your message..."
                       value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                      onChange={e => setMessageInput(e.target.value)}
+                      className="flex-1 rounded-full px-5 py-3 border-2 border-[#2563eb]/30 dark:border-[#60a5fa]/30 bg-[#f8fafc] dark:bg-[#181c2a] text-black dark:text-white font-bold focus:border-2 focus:border-[#2563eb] dark:focus:border-[#60a5fa] focus:outline-none shadow-sm placeholder:text-[#2563eb] dark:placeholder:text-[#60a5fa] focus:bg-[#dbeafe] dark:focus:bg-[#2563eb]/30"
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
                           handleSendMessage();
                         }
                       }}
-                      className="flex-1"
                     />
-                    <Button onClick={handleSendMessage}>Send</Button>
-                  </div>
+                    <Button
+                      type="submit"
+                      className="rounded-full px-6 py-3 bg-gradient-to-br from-[#2563eb] to-[#60a5fa] text-white font-bold shadow-lg hover:from-[#1d4ed8] hover:to-[#60a5fa] dark:bg-gradient-to-br dark:from-[#60a5fa] dark:to-[#2563eb] dark:text-[#181c2a] transition-all duration-200 flex items-center gap-2"
+                    >
+                      Send
+                    </Button>
+                  </form>
                 </CardContent>
               </Card>
             )}
 
             {activeSection === "medications" && (
-              <Card className="bg-purple-100 dark:bg-purple-900">
-                <CardContent className="p-4">
-                  <h2 className="text-xl font-semibold text-purple-800 dark:text-purple-100 mb-4">
+              <Card className="bg-blue-50 dark:bg-[#181c2a] border border-[#2563eb]/20 dark:border-[#60a5fa]/20 shadow-md rounded-3xl">
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-semibold text-[#2563eb] dark:text-[#60a5fa] mb-4">
                     Medications
                   </h2>
 
                   {/* Date Dropdown */}
                   <Select onValueChange={handleSelectChange}>
-                    <SelectTrigger className="w-[200px] bg-white dark:bg-purple-800 border-purple-300 dark:border-purple-700 mb-4">
-                      <SelectValue placeholder="Select a date" />
+                    <SelectTrigger className="w-[200px] bg-white dark:bg-[#181c2a] border-[#2563eb] dark:border-[#60a5fa] mb-4 placeholder:text-[#2563eb] placeholder:font-bold">
+                      <SelectValue placeholder={<span className='text-[#2563eb] font-bold'>Select a date</span>} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-[#dbeafe] dark:bg-[#181c2a] text-[#2563eb] dark:text-[#60a5fa] font-bold">
                       {medicationData.map((med, index) => (
                         <SelectItem
                           key={index}
-                          bv
-                          value={new Date(med.date).toISOString()}
+                          value={med.date}
+                          className="bg-[#dbeafe] text-[#2563eb] font-bold data-[highlighted]:bg-[#dbeafe] data-[highlighted]:text-[#2563eb]"
                         >
-                          {new Date(med.date).toLocaleDateString()}{" "}
+                          {(() => {
+                            const d = new Date(med.date);
+                            const datePart = d.toLocaleDateString("en-US", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            });
+                            const timePart = d.toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            });
+                            return (
+                              <span className="flex gap-2 w-full">
+                                <span>{datePart}</span>
+                                <span>{timePart}</span>
+                              </span>
+                            );
+                          })()}
                         </SelectItem>
+
                       ))}
                     </SelectContent>
                   </Select>
@@ -491,14 +580,14 @@ export default function AppointmentDetails() {
                       <TabsContent value="details">
                         <div className="overflow-x-auto mt-2 max-h-50 overflow-y-auto">
                           <table className="w-full text-sm">
-                            <thead className="bg-purple-300 dark:bg-purple-800">
+                            <thead className="bg-blue-200 dark:bg-[#2563eb]">
                               <tr>
                                 <th className="p-2 text-left">Name</th>
                                 <th className="p-2 text-left">Dosage</th>
                                 <th className="p-2 text-left">Frequency</th>
                               </tr>
                             </thead>
-                            <tbody className="bg-white dark:bg-purple-950">
+                            <tbody className="bg-white dark:bg-[#181c2a]">
                               {selectedMedication.medications.map((m, idx) => (
                                 <tr key={idx} className="border-b">
                                   <td className="p-2">{m.name}</td>
@@ -510,11 +599,10 @@ export default function AppointmentDetails() {
                           </table>
                         </div>
                         <Button
-                          className="mt-3 flex gap-2 items-center cursor-pointer"
+                          className="mt-3 flex gap-2 items-center cursor-pointer bg-[#2563eb] hover:bg-[#1d4ed8] text-white dark:bg-[#60a5fa] dark:hover:bg-[#3b82f6] dark:text-[#181c2a]"
                           onClick={handleDownloadPdf}
                         >
-                          <Download className="w-4 h-4 cursor-pointer" />{" "}
-                          Download PDF
+                          <Download className="w-4 h-4 cursor-pointer" /> Download PDF
                         </Button>
                       </TabsContent>
                     </Tabs>
@@ -524,28 +612,29 @@ export default function AppointmentDetails() {
             )}
 
             {activeSection === "reports" && (
-              <Card className="bg-purple-100 dark:bg-purple-900">
+              <Card className="bg-blue-50 dark:bg-[#181c2a] border border-[#2563eb]/20 dark:border-[#60a5fa]/20 shadow-md rounded-3xl">
                 <CardContent className="p-4 space-y-4">
-                  <h2 className="text-xl font-semibold text-purple-800 dark:text-purple-100">
+                  <h2 className="text-xl font-semibold text-[#2563eb] dark:text-[#60a5fa]">
                     Uploaded Reports
                   </h2>
                   {uploadedReports.length > 0 ? (
                     <div className="space-y-2">
-                      <h3 className="font-medium text-purple-700 dark:text-purple-200">
+                      <h3 className="font-medium text-[#2563eb] dark:text-[#60a5fa]">
                         Available Files:
                       </h3>
                       <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                         {uploadedReports.map((file, index) => (
                           <div
                             key={index}
-                            className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-purple-950 p-2 rounded shadow space-y-2 sm:space-y-0 sm:space-x-4"
+                            className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-[#181c2a] p-2 rounded shadow border border-[#2563eb]/10 dark:border-[#60a5fa]/10 space-y-2 sm:space-y-0 sm:space-x-4"
                           >
                             <div className="w-full sm:w-auto overflow-hidden">
                               <span className="block font-medium truncate max-w-full sm:max-w-xs">
                                 {file.name}
                               </span>
                               <div className="text-xs text-gray-600 dark:text-gray-400 break-words">
-                                Uploaded on: {file.date || "Unknown date"}
+                                Uploaded on: {file.date || "Unknown date"} {file.time ? `at ${file.time}` : ""}
+
                                 {file.patientName && (
                                   <> | Patient: {file.patientName}</>
                                 )}
@@ -555,6 +644,7 @@ export default function AppointmentDetails() {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="text-[#2563eb] dark:text-[#60a5fa] hover:bg-[#dbeafe] dark:hover:bg-[#2563eb]/20 hover:text-[#2563eb] dark:hover:text-[#60a5fa] font-bold border-[#2563eb] dark:border-[#60a5fa] cursor-pointer"
                                 onClick={() => window.open(file.url, "_blank")}
                               >
                                 View
@@ -562,6 +652,7 @@ export default function AppointmentDetails() {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="text-[#2563eb] dark:text-[#60a5fa] hover:bg-[#dbeafe] dark:hover:bg-[#2563eb]/20 hover:text-[#2563eb] dark:hover:text-[#60a5fa] font-bold border-[#2563eb] dark:border-[#60a5fa] cursor-pointer"
                                 onClick={() => {
                                   const link = document.createElement("a");
                                   link.href = file.url;
@@ -580,7 +671,7 @@ export default function AppointmentDetails() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-purple-700 dark:text-purple-200">
+                    <p className="text-[#2563eb] dark:text-[#60a5fa]">
                       No reports available.
                     </p>
                   )}
@@ -589,15 +680,24 @@ export default function AppointmentDetails() {
             )}
 
             {activeSection === "send Medication" && (
-              <Card className="bg-purple-100 dark:bg-purple-900">
-                <CardContent className="p-4">
-                  <h2 className="text-xl font-semibold text-purple-800 dark:text-purple-100 mb-4">
-                    Send Medication
-                  </h2>
+              <Card className="bg-blue-50 dark:bg-[#181c2a] border border-[#2563eb]/20 dark:border-[#60a5fa]/20 shadow-md rounded-3xl">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-[#2563eb] dark:text-[#60a5fa]">
+                      Send Medications
+                    </h2>
+                    <Button
+                      variant="outline"
+                      className="border-[#2563eb] text-[#2563eb] dark:border-[#60a5fa] dark:text-[#60a5fa] hover:bg-[#e0e7ff] dark:hover:bg-[#2563eb]/20 hover:text-[#2563eb] dark:hover:text-[#60a5fa] cursor-pointer"
+                      onClick={handleAddMedication}
+                    >
+                      Add Row
+                    </Button>
+                  </div>
 
-                  <div className="overflow-x-auto max-h-64 overflow-y-auto rounded-md">
-                    <table className="w-full text-sm bg-white dark:bg-purple-950 rounded-md">
-                      <thead className="bg-purple-300 dark:bg-purple-800 sticky top-0">
+                  <div className="overflow-x-auto max-h-64 overflow-y-auto rounded-lg">
+                    <table className="w-full text-sm bg-white dark:bg-[#181c2a] rounded-lg">
+                      <thead className="bg-blue-200 dark:bg-[#2563eb] sticky top-0">
                         <tr>
                           <th className="p-2 text-left">Name</th>
                           <th className="p-2 text-left">Dosage</th>
@@ -607,50 +707,39 @@ export default function AppointmentDetails() {
                       </thead>
                       <tbody>
                         {newMedications.map((med, idx) => (
-                          <tr key={idx} className="border-b border-purple-200">
+                          <tr key={idx} className="border-b border-[#2563eb]/10 dark:border-[#60a5fa]/10">
                             <td className="p-2">
                               <Input
                                 value={med.name}
                                 onChange={(e) =>
-                                  handleMedicationChange(
-                                    idx,
-                                    "name",
-                                    e.target.value
-                                  )
+                                  handleMedicationChange(idx, "name", e.target.value)
                                 }
-                                className="bg-white dark:bg-purple-800"
+                                className="bg-white dark:bg-[#181c2a] border-[#2563eb]/30 dark:border-[#60a5fa]/30 focus:border-[#2563eb] dark:focus:border-[#60a5fa] font-bold text-[#2563eb] dark:text-[#60a5fa] placeholder:font-normal placeholder:text-[#2563eb]/50 dark:placeholder:text-[#60a5fa]/60"
                               />
                             </td>
                             <td className="p-2">
                               <Input
                                 value={med.dosage}
                                 onChange={(e) =>
-                                  handleMedicationChange(
-                                    idx,
-                                    "dosage",
-                                    e.target.value
-                                  )
+                                  handleMedicationChange(idx, "dosage", e.target.value)
                                 }
-                                className="bg-white dark:bg-purple-800"
+                                className="bg-white dark:bg-[#181c2a] border-[#2563eb]/30 dark:border-[#60a5fa]/30 focus:border-[#2563eb] dark:focus:border-[#60a5fa] font-bold text-[#2563eb] dark:text-[#60a5fa] placeholder:font-normal placeholder:text-[#2563eb]/50 dark:placeholder:text-[#60a5fa]/60"
                               />
                             </td>
                             <td className="p-2">
                               <Input
                                 value={med.frequency}
                                 onChange={(e) =>
-                                  handleMedicationChange(
-                                    idx,
-                                    "frequency",
-                                    e.target.value
-                                  )
+                                  handleMedicationChange(idx, "frequency", e.target.value)
                                 }
-                                className="bg-white dark:bg-purple-800"
+                                className="bg-white dark:bg-[#181c2a] border-[#2563eb]/30 dark:border-[#60a5fa]/30 focus:border-[#2563eb] dark:focus:border-[#60a5fa] font-bold text-[#2563eb] dark:text-[#60a5fa] placeholder:font-normal placeholder:text-[#2563eb]/50 dark:placeholder:text-[#60a5fa]/60"
                               />
                             </td>
                             <td className="p-2">
                               <Button
                                 size="sm"
-                                variant="destructive"
+                                variant="outline"
+                                className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:border-red-400/40 dark:hover:bg-red-950 dark:hover:text-red-400 cursor-pointer"
                                 onClick={() => handleRemoveMedication(idx)}
                               >
                                 Remove
@@ -662,9 +751,11 @@ export default function AppointmentDetails() {
                     </table>
                   </div>
 
-                  <div className="mt-4 flex gap-2">
-                    <Button onClick={handleAddMedication}>Add Row</Button>
-                    <Button onClick={handleSubmitMedications} variant="default">
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSubmitMedications}
+                      className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white dark:bg-[#60a5fa] dark:hover:bg-[#3b82f6] dark:text-[#181c2a] cursor-pointer"
+                    >
                       Send to Patient
                     </Button>
                   </div>
@@ -672,16 +763,16 @@ export default function AppointmentDetails() {
               </Card>
             )}
             {activeSection === "zoom" && (
-              <Card className="bg-purple-100 dark:bg-purple-900">
+              <Card className="bg-blue-50 dark:bg-[#181c2a] border border-[#2563eb]/20 dark:border-[#60a5fa]/20 shadow-md rounded-3xl">
                 <CardContent className="p-4 space-y-2">
-                  <h2 className="text-xl font-semibold text-purple-800 dark:text-purple-100">
+                  <h2 className="text-xl font-semibold text-[#2563eb] dark:text-[#60a5fa]">
                     Start Video Call
                   </h2>
-                  <p className="text-sm text-purple-700 dark:text-purple-200">
+                  <p className="text-sm text-[#2563eb] dark:text-[#60a5fa]">
                     Click below to create and join a Zoom video consultation.
                   </p>
                   <Button
-                    className="bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
+                    className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white dark:bg-[#60a5fa] dark:hover:bg-[#3b82f6] dark:text-[#181c2a] cursor-pointer"
                     onClick={handleCreateZoomMeeting}
                   >
                     Start Zoom Meeting

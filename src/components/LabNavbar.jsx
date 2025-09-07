@@ -30,7 +30,7 @@ export default function Navbar() {
             className="text-2xl font-black text-[#2563eb] dark:text-[#60a5fa] tracking-tight flex items-center gap-2 drop-shadow-sm hover:text-[#1d4ed8] dark:hover:text-[#3b82f6] transition-colors font-sans"
             style={{ fontFamily: 'Segoe UI, Arial, Helvetica, sans-serif', letterSpacing: '0.01em' }}
           >
-            Rakshaa Labs
+            Medix Labs
           </Link>
         </div>
 

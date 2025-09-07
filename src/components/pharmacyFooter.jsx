@@ -8,7 +8,7 @@ export default function PharmaFooter() {
       <div className="max-w-7xl mx-auto px-8 py-14 flex flex-col sm:flex-row items-center justify-center gap-12 text-center">
         {/* Logo and Tagline */}
         <div className="flex flex-col items-center justify-center">
-          <h2 className="text-3xl font-black flex items-center gap-2 text-[#2563eb] dark:text-[#60a5fa] drop-shadow-md tracking-tight"> Rakshaa Pharmacy</h2>
+          <h2 className="text-3xl font-black flex items-center gap-2 text-[#2563eb] dark:text-[#60a5fa] drop-shadow-md tracking-tight"> Medix Pharmacy</h2>
           <p className="text-base mt-3 font-medium text-[#2563eb]/80 dark:text-[#60a5fa]/80">
             Your trusted online pharmacy delivering quality medicines at your doorstep with care.
           </p>
@@ -41,7 +41,7 @@ export default function PharmaFooter() {
 
       {/* Copyright */}
       <div className="border-t-2 border-dashed border-[#2563eb]/20 dark:border-[#60a5fa]/20 py-5 text-center text-base font-semibold text-[#2563eb] dark:text-[#60a5fa] bg-white/90 dark:bg-[#181c2a]/90 rounded-b-3xl tracking-wide">
-        &copy; {new Date().getFullYear()} Rakshaa Pharmacy. All rights reserved.
+        &copy; {new Date().getFullYear()} Medix Pharmacy. All rights reserved.
       </div>
     </footer>
   );

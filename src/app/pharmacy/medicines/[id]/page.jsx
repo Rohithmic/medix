@@ -110,7 +110,7 @@ export default function MedicineDetails() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-blue-800">{medicine.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {medicine.manufacturer || "Rakshaa Pharmaceuticals"}
+            {medicine.manufacturer || "Medix Pharmaceuticals"}
           </p>
 
           {medicine.description?.map((desc, idx) => (

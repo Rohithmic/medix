@@ -52,7 +52,7 @@ export default function PharmaNavbar({ user }) {
             <div className="flex items-center gap-2">
               <Image src="/logo2.jpg" alt="Logo" width={40} height={40} />
               <span className="text-xl font-bold text-blue-700">
-                Rakshaa Pharmacy
+                Medix Pharmacy
               </span>
             </div>
           </Link>
